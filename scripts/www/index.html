@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>动态通信加密</title>
+		<style>
+			:root {
+			    --primary-color: #4a90e2;
+			    --primary-hover: #357abd;
+			    --secondary-color: #50c878;
+			    --secondary-hover: #3cb043;
+			    --text-main: #333;
+			    --text-light: #555;
+			    --text-lighter: #888;
+			    --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
+			}
+
+			body {
+			    font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
+			    background: linear-gradient(-45deg, #ff595e, #ffca3a, #8ac926, #1982c4, #6a4c93, #ff595e);
+			    background-size: 600% 600%;
+			    animation: gradientBG 12s ease infinite;
+			    display: flex; flex-direction: column; justify-content: center; align-items: center;
+			    min-height: 100vh; margin: 0; color: var(--text-main); padding: 20px; box-sizing: border-box;
+			}
+			@keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+			.container {
+			    background: rgba(255, 255, 255, 0.65); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+			    padding: 40px; border-radius: 16px; box-shadow: var(--shadow); border: 1px solid rgba(255, 255, 255, 0.4);
+			    width: 100%; max-width: 600px; box-sizing: border-box; position: relative; z-index: 10;
+			}
+			h2 { text-align: center; color: var(--text-main); margin-bottom: 10px; font-weight: 600; letter-spacing: 0.5px; }
+			.desc { font-size: 14px; color: var(--text-lighter); text-align: center; margin-bottom: 30px; line-height: 1.6; }
+			label { display: block; margin-bottom: 8px; color: var(--text-light); font-weight: 500; font-size: 14px; }
+
+			/* 输入框与图标容器 */
+			.input-wrapper { position: relative; margin-bottom: 20px; }
+			textarea, input {
+			    width: 100%; padding: 12px 15px; border: 1px solid rgba(255, 255, 255, 0.6); border-radius: 8px;
+			    box-sizing: border-box; font-size: 14px; font-family: 'Microsoft YaHei', sans-serif;
+			    background-color: rgba(255, 255, 255, 0.85); transition: all 0.3s ease; color: var(--text-main);
+			}
+			textarea:focus, input:focus { outline: none; border-color: var(--primary-color); background-color: #fff; box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2); }
+			textarea { min-height: 90px; resize: vertical; }
+
+			/* CSDN 风格的右上角复制图标 */
+			.copy-icon-btn {
+			    position: absolute; right: 10px; top: 10px;
+			    width: 28px; height: 28px; border: none; border-radius: 6px;
+			    background: rgba(255, 255, 255, 0.8); cursor: pointer;
+			    display: flex; justify-content: center; align-items: center;
+			    transition: all 0.3s ease; padding: 0;
+			    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+			}
+			.copy-icon-btn:hover { background: #fff; transform: scale(1.05); }
+			.copy-icon-btn:active { transform: scale(0.95); }
+			.copy-icon-btn svg { width: 16px; height: 16px; fill: #666; transition: fill 0.3s ease; }
+			.copy-icon-btn:hover svg { fill: var(--primary-color); }
+			/* 复制成功状态 */
+			.copy-icon-btn.success { background: var(--secondary-color); }
+			.copy-icon-btn.success svg { fill: #fff; }
+
+			.btn-group { display: flex; gap: 15px; margin-bottom: 25px; }
+			button.main-btn {
+			    flex: 1; padding: 14px; border: none; border-radius: 8px; color: #fff; font-size: 16px; font-weight: 600;
+			    cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+			}
+			button.main-btn:hover { transform: translateY(-2px); box-shadow: 0 7px 14px rgba(0, 0, 0, 0.15); }
+			button.main-btn:active { transform: translateY(0); }
+			.btn-encrypt { background: var(--secondary-color); } .btn-encrypt:hover { background: var(--secondary-hover); }
+			.btn-decrypt { background: var(--primary-color); } .btn-decrypt:hover { background: var(--primary-hover); }
+
+			.result-box {
+			    margin-top: 10px; padding: 20px; background: rgba(255, 255, 255, 0.85); border-radius: 8px;
+			    border: 1px solid rgba(255, 255, 255, 0.6); word-break: break-all; white-space: pre-wrap; max-height: 150px;
+			    overflow-y: auto; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 14px;
+			    color: var(--text-main); line-height: 1.6; display: none;
+			}
+			.copyright {
+			    margin-top: 25px; font-size: 13px; font-weight: 600; text-align: center; z-index: 10; position: relative;
+			    background: linear-gradient(45deg, #ffffff, #ffe066, #ffffff); background-size: 200% 200%;
+			    animation: textGradient 6s ease infinite;
+			    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+			    filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.4));
+			}
+			@keyframes textGradient { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+			#waterOverlay {
+			    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+			    pointer-events: none; z-index: 1; opacity: 0; transition: opacity 0.6s ease;
+			    backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+			}
+			#waterOverlay.active { opacity: 1; }
+
+			@media (max-width: 480px) { .container { padding: 25px; } h2 { font-size: 22px; } .btn-group { flex-direction: column; } }
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<h2>动态通信加密</h2>
+			<p class="desc">更快 更稳 更安全</p>
+
+			<label for="content">输入需要加密的内容</label>
+			<textarea
+				id="content"
+				placeholder="在此输入您想加密的中文内容..."
+			></textarea>
+
+			<div class="btn-group">
+				<button class="main-btn btn-encrypt" onclick="handleEncrypt()">
+					加密
+				</button>
+				<button class="main-btn btn-decrypt" onclick="handleDecrypt()">
+					解密
+				</button>
+			</div>
+
+			<label for="cipherBox">密文内容</label>
+			<div class="input-wrapper">
+				<textarea
+					id="cipherBox"
+					placeholder="加密后在此生成，解密时请粘贴密文..."
+				></textarea>
+				<button
+					class="copy-icon-btn"
+					id="copyCipherBtn"
+					onclick="copyText('cipherBox', 'copyCipherBtn')"
+					title="复制密文"
+				>
+					<svg viewBox="0 0 24 24">
+						<path
+							d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
+						/>
+					</svg>
+				</button>
+			</div>
+
+			<label for="timeBox">动态密码</label>
+			<div class="input-wrapper">
+				<textarea
+					id="timeBox"
+					placeholder="加密后在此生成，解密时请粘贴对应的动态密码"
+				></textarea>
+				<button
+					class="copy-icon-btn"
+					id="copyTimeBtn"
+					onclick="copyText('timeBox', 'copyTimeBtn')"
+					title="复制密码"
+				>
+					<svg viewBox="0 0 24 24">
+						<path
+							d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
+						/>
+					</svg>
+				</button>
+			</div>
+
+			<label for="resultBox">解密结果</label>
+			<div id="resultBox" class="result-box"></div>
+		</div>
+		<div class="copyright">
+			© 2026 xueyixua@iCloud.com. All Rights Reserved.
+		</div>
+		<canvas id="waterOverlay"></canvas>
+
+		<script>
+			// --- CSDN 风格复制逻辑 ---
+			async function copyText(textareaId, btnId) {
+			    const textarea = document.getElementById(textareaId);
+			    const btn = document.getElementById(btnId);
+
+			    if (!textarea.value) return alert('当前内容为空，无法复制！');
+
+			    try {
+			        await navigator.clipboard.writeText(textarea.value);
+
+			        // 切换为打勾图标
+			        btn.classList.add('success');
+			        btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>`;
+
+			        // 1.5秒后恢复复制图标
+			        setTimeout(() => {
+			            btn.classList.remove('success');
+			            btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
+			        }, 1500);
+			    } catch (err) {
+			        console.error('复制失败:', err);
+			        alert('复制失败，请手动选择文本复制！');
+			    }
+			}
+
+			// --- 液态玻璃水幕核心逻辑 ---
+			const canvas = document.getElementById('waterOverlay');
+			const ctx = canvas.getContext('2d');
+			let animationId = null, waveOffset = 0, isActive = false;
+			let currentLevel = 100, targetLevel = 100, currentProgress = 0, targetProgress = 0;
+
+			function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+			window.addEventListener('resize', resizeCanvas); resizeCanvas();
+
+			function showWater() { isActive = true; canvas.classList.add('active'); drawWater(); }
+			function hideWater() {
+			    isActive = false; canvas.classList.remove('active');
+			    if (animationId) cancelAnimationFrame(animationId);
+			    currentLevel = 100; targetLevel = 100; currentProgress = 0; targetProgress = 0;
+			}
+			function setProgress(val) {
+			    targetProgress = Math.min(100, Math.max(0, val));
+			    targetLevel = 100 - targetProgress;
+			}
+
+			function drawSmoothWave(yBase, amplitude, frequency, phase, color, alpha) {
+			    ctx.beginPath(); ctx.moveTo(0, canvas.height);
+			    const points = [];
+			    for (let x = 0; x <= canvas.width; x += 20) {
+			        const y = yBase + Math.sin(x * frequency + phase) * amplitude + Math.sin(x * frequency * 0.5 + phase * 1.2) * (amplitude * 0.5);
+			        points.push({x, y});
+			    }
+			    ctx.lineTo(points[0].x, points[0].y);
+			    for (let i = 0; i < points.length - 1; i++) {
+			        const xc = (points[i].x + points[i + 1].x) / 2;
+			        const yc = (points[i].y + points[i + 1].y) / 2;
+			        ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+			    }
+			    ctx.lineTo(canvas.width, points[points.length - 1].y);
+			    ctx.lineTo(canvas.width, canvas.height); ctx.closePath();
+			    const gradient = ctx.createLinearGradient(0, yBase - amplitude, 0, canvas.height);
+			    gradient.addColorStop(0, `rgba(${color}, ${alpha})`);
+			    gradient.addColorStop(1, `rgba(${color}, ${alpha * 0.3})`);
+			    ctx.fillStyle = gradient; ctx.fill();
+			}
+
+			function drawWater() {
+			    if (!isActive) return;
+			    ctx.clearRect(0, 0, canvas.width, canvas.height);
+			    currentLevel += (targetLevel - currentLevel) * 0.05;
+			    currentProgress += (targetProgress - currentProgress) * 0.05;
+			    const baseY = (currentLevel / 100) * canvas.height;
+
+			    drawSmoothWave(baseY + 15, 25, 0.004, waveOffset * 0.03, '255, 255, 255', 0.4);
+			    drawSmoothWave(baseY + 5, 20, 0.005, waveOffset * 0.04, '173, 216, 230', 0.5);
+			    drawSmoothWave(baseY, 15, 0.006, waveOffset * 0.05, '74, 144, 226', 0.6);
+
+			    if (currentProgress > 0 && currentProgress < 100) {
+			        ctx.save();
+			        ctx.font = "bold 24px 'Microsoft YaHei', sans-serif";
+			        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+			        ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+			        ctx.shadowColor = "rgba(0, 0, 0, 0.3)"; ctx.shadowBlur = 8;
+			        ctx.fillText(`处理中... ${Math.round(currentProgress)}%`, canvas.width / 2, baseY - 40);
+			        ctx.restore();
+			    }
+			    waveOffset++;
+			    animationId = requestAnimationFrame(drawWater);
+			}
+
+			// --- 加密解密逻辑 ---
+			async function encryptData(plainText) {
+			    const encoder = new TextEncoder(); const bytes = encoder.encode(plainText);
+			    const cipherBytes = [], timestamps = [];
+			    for (let i = 0; i < bytes.length; i++) {
+			        const timestamp = Date.now(); timestamps.push(timestamp);
+			        const multiplier = ((timestamp + i) % 128) * 2 + 1;
+			        cipherBytes.push((bytes[i] * multiplier) % 256);
+			        const randomArray = new Uint8Array(1); crypto.getRandomValues(randomArray);
+			        await new Promise(resolve => setTimeout(resolve, (randomArray[0] % 10) + 1));
+			        setProgress(((i + 1) / bytes.length) * 100);
+			    }
+			    return { cipher: cipherBytes.map(b => b.toString(16).padStart(2, '0')).join(''), timestamps: timestamps.join(',') };
+			}
+
+			function decryptData(cipherHex, timestampsStr) {
+			    const cipherBytes = [];
+			    for (let i = 0; i < cipherHex.length; i += 2) cipherBytes.push(parseInt(cipherHex.substr(i, 2), 16));
+			    const timestamps = timestampsStr.split(',').map(Number);
+			    const decryptedBytes = new Uint8Array(cipherBytes.length);
+			    for (let i = 0; i < cipherBytes.length; i++) {
+			        const timestamp = timestamps[i], multiplier = ((timestamp + i) % 128) * 2 + 1;
+			        let invMultiplier = 1n, base = BigInt(multiplier), exp = 127n;
+			        while (exp > 0n) { if (exp % 2n === 1n) invMultiplier = (invMultiplier * base) % 256n; base = (base * base) % 256n; exp = exp / 2n; }
+			        decryptedBytes[i] = (cipherBytes[i] * Number(invMultiplier)) % 256;
+			        setProgress(((i + 1) / cipherBytes.length) * 100);
+			    }
+			    return new TextDecoder().decode(decryptedBytes);
+			}
+
+			async function handleEncrypt() {
+			    const content = document.getElementById('content').value;
+			    if (!content) return alert("请输入要加密的内容！");
+			    let triggered = false;
+			    const timer = setTimeout(() => { showWater(); triggered = true; }, 1000);
+			    const { cipher, timestamps } = await encryptData(content);
+			    clearTimeout(timer);
+			    if (triggered) { setProgress(100); setTimeout(hideWater, 600); }
+
+			    document.getElementById('cipherBox').value = cipher;
+			    document.getElementById('timeBox').value = timestamps;
+			    document.getElementById('resultBox').style.display = 'none';
+			}
+
+			async function handleDecrypt() {
+			    const cipher = document.getElementById('cipherBox').value.trim();
+			    const timestamps = document.getElementById('timeBox').value.trim();
+			    const resultBox = document.getElementById('resultBox');
+			    if (!cipher || !timestamps) return alert("请确保密文和动态密码输入框都有内容！");
+			    let triggered = false;
+			    const timer = setTimeout(() => { showWater(); triggered = true; }, 1000);
+			    try {
+			        const decrypted = decryptData(cipher, timestamps); clearTimeout(timer);
+			        if (triggered) { setProgress(100); setTimeout(hideWater, 600); }
+			        resultBox.textContent = decrypted; resultBox.style.display = 'block';
+			    } catch (e) { clearTimeout(timer); hideWater(); alert("解密失败！请检查密文和动态密码是否匹配。"); }
+			}
+		</script>
+	</body>
+</html>
